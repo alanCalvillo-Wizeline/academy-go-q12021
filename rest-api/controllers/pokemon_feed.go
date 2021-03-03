@@ -25,10 +25,6 @@ func GetPokemon(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("posts")
 }
 func read_csv(w http.ResponseWriter, r *http.Request) {
-
-	//j, _ = json.MarshalIndent(fs, "", "  ")
-	//log.Println(string(j))
-
 	r.ParseMultipartForm(10 << 20)
 	file, handler, err := r.FormFile("myFile")
 	if err != nil {
@@ -55,15 +51,15 @@ func read_csv(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	j, _ := json.Marshal(fs)
-	log.Println(string(j))
-
 	if err := scanner.Err(); err != nil {
 		json.NewEncoder(w).Encode("Error while reading the File")
 		log.Fatal(err)
+	} else {
+		j, _ := json.Marshal(fs)
+		log.Println(string(j))
+		json.NewEncoder(w).Encode(fs)
+		fmt.Printf("Uploaded File: %+v\n", handler.Filename)
 	}
-	json.NewEncoder(w).Encode(fs)
-	fmt.Printf("Uploaded File: %+v\n", handler.Filename)
 
 }
 
