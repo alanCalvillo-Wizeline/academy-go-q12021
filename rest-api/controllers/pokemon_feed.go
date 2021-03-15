@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"rest-api/models"
 	"strconv"
 	"strings"
 
@@ -18,6 +20,15 @@ import (
 type Pokemon struct {
 	Id   int    `json:"id"`
 	Name string `json:"name"`
+}
+type ApiEndpointBody struct {
+	Count    int         `json:"count"`
+	Next     string      `json:"next"`
+	Previous interface{} `json:"previous"`
+	Results  []struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"results"`
 }
 
 func GetPokemon(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +55,7 @@ func read_csv(w http.ResponseWriter, r *http.Request) {
 			} else {
 				a := Pokemon{Name: csv_line[1], Id: int(i2)}
 				fs = append(fs, a)
+				models.SavePokemon(a.Id, a.Name)
 			}
 
 		} else {
@@ -63,6 +75,34 @@ func read_csv(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func api_feed(w http.ResponseWriter, r *http.Request) {
+	// in this process we are going to use this url https://pokeapi.co/api/v2/pokemon?offset=0&limit=100
+	api_endpoint := "https://pokeapi.co/api/v2/pokemon?offset=0&limit=100"
+	response, err := http.Get(api_endpoint)
+	if err != nil {
+		fmt.Printf("The HTTP request failed with error %s\n", err)
+	} else {
+		data, _ := ioutil.ReadAll(response.Body)
+		var api_endpoint_body ApiEndpointBody
+		json.Unmarshal(data, &api_endpoint_body)
+		var fs []Pokemon
+
+		for i := 0; i < len(api_endpoint_body.Results); i++ {
+			url := api_endpoint_body.Results[i].URL
+			url = strings.Replace(url, "https://pokeapi.co/api/v2/pokemon/", "", 1)
+			id := strings.Replace(url, "/", "", 1)
+			id_poke, err := strconv.Atoi(id)
+			if err != nil {
+				fmt.Printf("The id extraction has been failed  %s\n", err)
+			}
+			a := Pokemon{Name: api_endpoint_body.Results[i].Name, Id: id_poke}
+			fs = append(fs, a)
+			models.SavePokemon(a.Id, a.Name)
+		}
+		json.NewEncoder(w).Encode(fs)
+	}
+}
+
 func SavePokemon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
@@ -70,7 +110,7 @@ func SavePokemon(w http.ResponseWriter, r *http.Request) {
 	case "csv":
 		read_csv(w, r)
 	case "api":
-		json.NewEncoder(w).Encode("it will work at some point")
+		api_feed(w, r)
 	default:
 		json.NewEncoder(w).Encode("not supported")
 	}
