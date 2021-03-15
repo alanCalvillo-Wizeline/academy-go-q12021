@@ -2,8 +2,8 @@ package main
 
 import (
 	"net/http"
+	controller "rest-api/controllers"
 
-	controller "./controllers"
 	"github.com/gorilla/mux"
 )
 
