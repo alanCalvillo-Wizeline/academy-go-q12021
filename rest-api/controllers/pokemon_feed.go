@@ -35,7 +35,7 @@ func GetPokemon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode("posts")
 }
-func read_csv(w http.ResponseWriter, r *http.Request) {
+func Read_csv(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(10 << 20)
 	file, handler, err := r.FormFile("myFile")
 	if err != nil {
@@ -75,7 +75,7 @@ func read_csv(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func api_feed(w http.ResponseWriter, r *http.Request) {
+func Api_feed(w http.ResponseWriter, r *http.Request) {
 	// in this process we are going to use this url https://pokeapi.co/api/v2/pokemon?offset=0&limit=100
 	api_endpoint := "https://pokeapi.co/api/v2/pokemon?offset=0&limit=100"
 	response, err := http.Get(api_endpoint)
@@ -108,9 +108,9 @@ func SavePokemon(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	switch params["method"] {
 	case "csv":
-		read_csv(w, r)
+		Read_csv(w, r)
 	case "api":
-		api_feed(w, r)
+		Api_feed(w, r)
 	default:
 		json.NewEncoder(w).Encode("not supported")
 	}
