@@ -2,13 +2,25 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
 	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/spf13/viper"
 )
 
 func SavePokemon(id int, name string) {
-	db, err := sql.Open("mysql", "poke:pokepassword@tcp(127.0.0.1:3306)/pokedex")
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("config")
+	viper.AutomaticEnv()
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println("fatal error config file: default \n", err)
+		os.Exit(1)
+	}
+	db, err := sql.Open("mysql", viper.GetString("app.dbuser")+":"+viper.GetString("app.dbpass")+"@tcp("+viper.GetString("app.dbhost")+":"+viper.GetString("app.dbport")+")/"+viper.GetString("app.dbname"))
 
 	if err != nil {
 		panic(err.Error())
