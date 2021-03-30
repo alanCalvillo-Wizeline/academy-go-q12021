@@ -21,6 +21,7 @@ type Pokemon struct {
 	Id   int    `json:"id"`
 	Name string `json:"name"`
 }
+
 type ApiEndpointBody struct {
 	Count    int         `json:"count"`
 	Next     string      `json:"next"`
@@ -30,6 +31,9 @@ type ApiEndpointBody struct {
 		URL  string `json:"url"`
 	} `json:"results"`
 }
+
+var total int
+var total_per_worker [3]int
 
 func GetPokemon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -102,6 +106,81 @@ func Api_feed(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(fs)
 	}
 }
+func worker_add(id int, jobs <-chan Pokemon, results chan<- Pokemon) {
+	for j := range jobs {
+		if total > 0 && total_per_worker[id-1] > 0 {
+			fmt.Println("worker", id, "started  job", j)
+			fmt.Println("worker", id, "finished job", j)
+			results <- j
+		}
+		total--
+		total_per_worker[id-1] = total_per_worker[id-1] - 1
+	}
+}
+func Worker(w http.ResponseWriter, r *http.Request) {
+	jobs := make(chan Pokemon, 100)
+	results := make(chan Pokemon, 100)
+
+	items_per_workers := r.URL.Query().Get("items_per_workers")
+	intValue_per_worker, _ := strconv.Atoi(items_per_workers)
+
+	type_value := r.URL.Query().Get("type") //odd or even
+
+	items := r.URL.Query().Get("items")
+
+	items_value, _ := strconv.Atoi(items)
+
+	total = items_value
+	fmt.Printf(items_per_workers)
+	for w := 1; w <= 3; w++ {
+		go worker_add(w, jobs, results)
+		total_per_worker[w-1] = intValue_per_worker
+	}
+	r.ParseMultipartForm(10 << 20)
+	file, handler, err := r.FormFile("myFile")
+	if err != nil {
+		log.Fatal("Error Retrieving the File")
+		json.NewEncoder(w).Encode("Error Retrieving the File")
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		csv_line := strings.Split(scanner.Text(), ",")
+		if len(csv_line) == 2 {
+			i2, err := strconv.ParseInt(csv_line[0], 10, 64)
+			if err != nil {
+				log.Fatal("ID not being valid!")
+			} else {
+				a := Pokemon{Name: csv_line[1], Id: int(i2)}
+				models.SavePokemon(a.Id, a.Name)
+				if type_value == "even" && int(i2)%2 == 0 {
+					jobs <- a
+				} else {
+					jobs <- a
+				}
+
+			}
+
+		} else {
+			log.Fatal("CSV row incomplete!")
+		}
+	}
+	close(jobs)
+
+	if err := scanner.Err(); err != nil {
+		json.NewEncoder(w).Encode("Error while reading the File")
+		log.Fatal(err)
+	} else {
+		j, _ := json.Marshal(results)
+		log.Println(string(j))
+		json.NewEncoder(w).Encode(results)
+		fmt.Printf("Uploaded File: %+v\n", handler.Filename)
+
+	}
+
+}
 
 func SavePokemon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -111,6 +190,8 @@ func SavePokemon(w http.ResponseWriter, r *http.Request) {
 		Read_csv(w, r)
 	case "api":
 		Api_feed(w, r)
+	case "worker":
+		Worker(w, r)
 	default:
 		json.NewEncoder(w).Encode("not supported")
 	}
