@@ -33,6 +33,7 @@ type ApiEndpointBody struct {
 }
 
 var total int
+var totalOutput int = 0
 var TotalPerWorker [3]int
 
 const multiformSize = (10 << 20)
@@ -132,6 +133,7 @@ func Worker_add(id int, jobs <-chan Pokemon, results chan<- Pokemon) {
 			fmt.Println("worker", id, "started  job", j)
 			fmt.Println("worker", id, "finished job", j)
 			results <- j
+			totalOutput++
 		}
 		total--
 		TotalPerWorker[id-1] = TotalPerWorker[id-1] - 1
@@ -149,7 +151,6 @@ func Worker(w http.ResponseWriter, r *http.Request) {
 	items := r.URL.Query().Get("items")
 
 	ItemsValue, _ := strconv.Atoi(items)
-
 	total = ItemsValue
 	log.Println(ItemsPerWorkers)
 	for w := 1; w <= 3; w++ {
@@ -191,7 +192,6 @@ func Worker(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	close(jobs)
-
 	if err := scanner.Err(); err != nil {
 		ErrEncode := json.NewEncoder(w).Encode("Error while reading the File")
 		if ErrEncode != nil {
@@ -199,9 +199,19 @@ func Worker(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Println(err)
 	} else {
-		j, _ := json.Marshal(results)
+		var fs []Pokemon
+		for r := range results {
+			fs = append(fs, r)
+			if totalOutput == 1 {
+				break
+			}
+			log.Println(totalOutput)
+			totalOutput--
+		}
+		log.Println("r.Name")
+		j, _ := json.Marshal(fs)
 		log.Println(string(j))
-		ErrEncode := json.NewEncoder(w).Encode(results)
+		ErrEncode := json.NewEncoder(w).Encode(fs)
 		if ErrEncode != nil {
 			log.Println(ErrEncode)
 		}
